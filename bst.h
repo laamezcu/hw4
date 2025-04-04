@@ -504,7 +504,7 @@ void BinarySearchTree<Key, Value>::remove(const Key& key)
         child = nodeToRemove->getRight();
     }
 
-    if (nodeToRemove == nullptr) {
+    if (nodeToRemove->getParent() == nullptr) {
         root_ = child;
     } else if (nodeToRemove == nodeToRemove->getParent()->getLeft()) {
         nodeToRemove->getParent()->setLeft(child);
