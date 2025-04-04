@@ -134,7 +134,8 @@ public:
     virtual void insert (const std::pair<const Key, Value> &new_item) override; // TODO
     virtual void remove(const Key& key) override;  // TODO
 protected:
-    virtual void nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2);
+    //virtual void nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2) override;
+    virtual void nodeSwap(Node<Key,Value>* n1, Node<Key,Value>* n2) override;
 
     // Add helper functions here
 private:
@@ -172,6 +173,8 @@ AVLNode<Key, Value>* AVLTree<Key, Value>::rotateLeft(AVLNode<Key, Value>* node)
     } else {
         this->root_ = right;
     }
+    node->setBalance(node->getBalance() - 1 - std::max(right->getBalance(), static_cast<int8_t>(0)));
+    right->setBalance(right->getBalance() - 1 + std::min(node->getBalance(), static_cast<int8_t>(0)));
     return right;
 }
 
@@ -193,6 +196,8 @@ AVLNode<Key, Value>* AVLTree<Key, Value>::rotateRight(AVLNode<Key, Value>* node)
     } else {
         this->root_ = left;
     }
+    node->setBalance(node->getBalance() + 1 - std::min(left->getBalance(), static_cast<int8_t>(0)));
+    left->setBalance(left->getBalance() + 1 + std::max(node->getBalance(), static_cast<int8_t>(0)));
     return left;
 }
 
@@ -204,12 +209,12 @@ void AVLTree<Key, Value>::balance(AVLNode<Key, Value>* node)
             if(node->getRight()->getBalance() < 0) {
                 rotateRight(node->getRight());
             }
-            rotateLeft(node);
+            node = rotateLeft(node);
         } else if (node->getBalance() < -1) {
             if (node->getLeft()->getBalance() > 0) {
                 rotateLeft(node->getLeft());
             }
-            rotateRight(node);
+            node = rotateRight(node);
         }
         node = node->getParent();
     }
@@ -290,7 +295,6 @@ void AVLTree<Key, Value>:: remove(const Key& key)
     }
 
     if (nodeToRemove->getLeft() != nullptr && nodeToRemove->getRight() != nullptr) {
-        // Node has two children, swap with predecessor
         AVLNode<Key, Value>* predecessorNode = predecessorAVLNode(nodeToRemove);
         nodeSwap(nodeToRemove, predecessorNode);
         nodeToRemove = predecessorNode;
@@ -303,6 +307,8 @@ void AVLTree<Key, Value>:: remove(const Key& key)
         child = nodeToRemove->getRight();
     }
 
+    AVLNode<Key, Value>* parent = nodeToRemove->getParent();
+
     if (nodeToRemove->getParent() == nullptr) {
         this->root_ = child;
     } else if (nodeToRemove == nodeToRemove->getParent()->getLeft()) {
@@ -314,17 +320,40 @@ void AVLTree<Key, Value>:: remove(const Key& key)
     if (child != nullptr) {
         child->setParent(nodeToRemove->getParent());
     }
-    balance(nodeToRemove->getParent());
+    
     delete nodeToRemove;
+
+    while (parent != nullptr) {
+        if (child != nullptr && child->getKey() < parent->getKey()) {
+            parent->updateBalance(1);
+        }
+        else {
+            parent->updateBalance(-1);
+        }
+
+        if (std::abs(parent->getBalance()) > 1) {
+            balance(parent);
+        }
+        child = parent;
+        parent = parent->getParent();
+    }
 }
 
 template<class Key, class Value>
-void AVLTree<Key, Value>::nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2)
+//void AVLTree<Key, Value>::nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2)
+void AVLTree<Key, Value>::nodeSwap( Node<Key,Value>* n1, Node<Key,Value>* n2)
 {
     BinarySearchTree<Key, Value>::nodeSwap(n1, n2);
+    AVLNode<Key, Value>* avlN1 = static_cast<AVLNode<Key, Value>*>(n1);
+    AVLNode<Key, Value>* avlN2 = static_cast<AVLNode<Key, Value>*>(n2);
+    int8_t tempB = avlN1->getBalance();
+    avlN1->setBalance(avlN2->getBalance());
+    avlN2->setBalance(tempB);
+    /*
     int8_t tempB = n1->getBalance();
     n1->setBalance(n2->getBalance());
     n2->setBalance(tempB);
+    */
 }
 
 
