@@ -131,15 +131,113 @@ template <class Key, class Value>
 class AVLTree : public BinarySearchTree<Key, Value>
 {
 public:
-    virtual void insert (const std::pair<const Key, Value> &new_item); // TODO
-    virtual void remove(const Key& key);  // TODO
+    virtual void insert (const std::pair<const Key, Value> &new_item) override; // TODO
+    virtual void remove(const Key& key) override;  // TODO
 protected:
     virtual void nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2);
 
     // Add helper functions here
-
-
+private:
+    AVLNode<Key, Value>* makeAVLNode(const std::pair<const Key, Value>& new_item, AVLNode<Key, Value>* parent);
+    AVLNode<Key, Value>* rotateLeft(AVLNode<Key, Value>* node);
+    AVLNode<Key, Value>* rotateRight(AVLNode<Key, Value>* node);
+    void balance(AVLNode<Key, Value>* node);
+    AVLNode<Key, Value>* findAVLNode(const Key& key) const;
+    AVLNode<Key, Value>* getSmallestAVLNode() const;
+    AVLNode<Key, Value>* predecessorAVLNode(AVLNode<Key, Value>* current);
+    AVLNode<Key, Value>* successorAVLNode(AVLNode<Key, Value>* node);
 };
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::makeAVLNode(const std::pair<const Key, Value>& new_item, AVLNode<Key, Value>* parent)
+{
+    return new AVLNode<Key, Value>(new_item.first, new_item.second, parent);
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::rotateLeft(AVLNode<Key, Value>* node)
+{
+    AVLNode<Key, Value>* right = node->getRight();
+    AVLNode<Key, Value>* rightLeft = right->getLeft();
+
+    right->setLeft(node);
+    node->setRight(rightLeft);
+
+    if (right->getParent() != nullptr) {
+        if (node == right->getParent()->getLeft()) {
+            right->getParent()->setLeft(right);
+        } else {
+            right->getParent()->setRight(right);
+        }
+    } else {
+        this->root_ = right;
+    }
+    return right;
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::rotateRight(AVLNode<Key, Value>* node)
+{
+    AVLNode<Key, Value>* left = node->getLeft();
+    AVLNode<Key, Value>* leftRight = left->getRight();
+
+    left->setRight(node);
+    node->setLeft(leftRight);
+
+    if (left->getParent() != nullptr) {
+        if (node == left->getParent()->getLeft()) {
+            left->getParent()->setLeft(left);
+        } else {
+            left->getParent()->setRight(left);
+        }
+    } else {
+        this->root_ = left;
+    }
+    return left;
+}
+
+template<class Key, class Value>
+void AVLTree<Key, Value>::balance(AVLNode<Key, Value>* node)
+{
+    while (node != nullptr) {
+        if (node->getBalance() > 1) {
+            if(node->getRight()->getBalance() < 0) {
+                rotateRight(node->getRight());
+            }
+            rotateLeft(node);
+        } else if (node->getBalance() < -1) {
+            if (node->getLeft()->getBalance() > 0) {
+                rotateLeft(node->getLeft());
+            }
+            rotateRight(node);
+        }
+        node = node->getParent();
+    }
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::findAVLNode(const Key& key) const
+{
+    return static_cast<AVLNode<Key, Value>*>(this->internalFind(key));
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::getSmallestAVLNode() const
+{
+    return static_cast<AVLNode<Key, Value>*>(this->getSmallest());
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::predecessorAVLNode(AVLNode<Key, Value>* current)
+{
+    return static_cast<AVLNode<Key, Value>*>(BinarySearchTree<Key, Value>::predecessor(current));
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::successorAVLNode(AVLNode<Key, Value>* node)
+{
+    return static_cast<AVLNode<Key, Value>*>(BinarySearchTree<Key, Value>::successor(node));
+}
 
 /*
  * Recall: If key is already in the tree, you should 
@@ -149,6 +247,33 @@ template<class Key, class Value>
 void AVLTree<Key, Value>::insert (const std::pair<const Key, Value> &new_item)
 {
     // TODO
+    if (this->root_ == nullptr) {
+        this->root_ = makeAVLNode(new_item, nullptr);
+        return;
+    }
+
+    AVLNode<Key, Value>* current = static_cast<AVLNode<Key, Value>*>(this->root_);
+    AVLNode<Key, Value>* parent = nullptr;
+
+    while (current != nullptr) {
+        parent = current;
+        if (new_item.first < current->getKey()) {
+            current = current->getLeft();
+        } else if (new_item.first > current->getKey()) {
+            current = current->getRight();
+        } else {
+            current->setValue(new_item.second);
+            return;
+        }
+    }
+
+    AVLNode<Key, Value>* newNode = makeAVLNode(new_item, parent);
+    if (new_item.first < parent->getKey()) {
+        parent->setLeft(newNode);
+    } else {
+        parent->setRight(newNode);
+    }
+    balance(parent);
 }
 
 /*
@@ -159,6 +284,38 @@ template<class Key, class Value>
 void AVLTree<Key, Value>:: remove(const Key& key)
 {
     // TODO
+    AVLNode<Key, Value>* nodeToRemove = findAVLNode(key);
+    if (nodeToRemove == nullptr) {
+        return;
+    }
+
+    if (nodeToRemove->getLeft() != nullptr && nodeToRemove->getRight() != nullptr) {
+        // Node has two children, swap with predecessor
+        AVLNode<Key, Value>* predecessorNode = predecessorAVLNode(nodeToRemove);
+        nodeSwap(nodeToRemove, predecessorNode);
+        nodeToRemove = predecessorNode;
+    }
+
+    AVLNode<Key, Value>* child;
+    if (nodeToRemove->getLeft() != nullptr) {
+        child = nodeToRemove->getLeft();
+    } else {
+        child = nodeToRemove->getRight();
+    }
+
+    if (nodeToRemove->getParent() == nullptr) {
+        this->root_ = child;
+    } else if (nodeToRemove == nodeToRemove->getParent()->getLeft()) {
+        nodeToRemove->getParent()->setLeft(child);
+    } else {
+        nodeToRemove->getParent()->setRight(child);
+    }
+
+    if (child != nullptr) {
+        child->setParent(nodeToRemove->getParent());
+    }
+    balance(nodeToRemove->getParent());
+    delete nodeToRemove;
 }
 
 template<class Key, class Value>
